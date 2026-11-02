@@ -1,0 +1,13 @@
+.env
+.env.local
+
+__pycache__/
+*.py[cod]
+
+evaluation/
+raw/
+
+CASEBRIEF_*_FINAL_REVIEW.md
+CASEBRIEF_OVERNIGHT_QC_REPORT.md
+
+reviewer_state_a.html

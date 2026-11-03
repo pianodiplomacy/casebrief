@@ -2,7 +2,7 @@
 
 CaseBrief is an offline harness for examining whether a supplied evidence packet supports, contradicts, or leaves claims unresolved. Benchmark v1.0 tests evidence-relative reporting on one synthetic fixture; it does not establish general model accuracy, safety, legal suitability, or production readiness.
 
-**Current factual status:** Benchmark v1.0 is frozen. The offline structural validator passed **6/6** tests, the updated adapter safety suite passed **22/22** under its controlled runner, and Reviewer View v0.1 passed **5/5** local tests. The OpenRouter/Baseten adapter is implemented and offline-tested only; **Run 001 has NOT been executed** and no genuine model output exists. State A remains current; State B remains unavailable. Muse Spark Open is the selected genuine Meta model direction; CaseBrief sends the frozen contract and synthetic packet for an evidence-relative structured response.
+**Current factual status:** Benchmark v1.0 is frozen. The offline structural validator passed **6/6** tests, the adapter safety suite passed **22/22** under its controlled runner, and Reviewer View v0.1 passed **5/5** local tests. The OpenRouter/Baseten integration is implemented and offline-tested. Run 001 produced one genuine response from Meta Muse Spark Open through OpenRouter, with BaseTen returned as provider. The response ended at the length boundary with null final content; no answer artifact existed, and structural validation, quality assessment, and human acceptance were not performed. See the [public Run 001 receipt](docs/RUN_001_RECEIPT.md). State A is the pre-run historical view; State B remains unimplemented.
 
 ## What this benchmark tests
 
@@ -20,7 +20,7 @@ python -B -m unittest discover -s tests -p test_reviewer_view.py -v
 
 The safety suite installs its audit guard before importing `src.run_001`. Its read allow-list covers only the test and adapter source, required frozen contract/packet inputs, and the narrowly named import-cache entries; `-B` prevents bytecode creation. The guard blocks network access, `.env`, evaluator/private evidence, and unauthorized workspace reads/writes. Tests use mocked transport and a dummy credential only. Do not treat generated example data as Run 001 evidence.
 
-## Inspect State A
+## Inspect the pre-run State A view
 
 Generate the read-only local reviewer from the frozen synthetic packet:
 
@@ -28,7 +28,7 @@ Generate the read-only local reviewer from the frozen synthetic packet:
 python -B .\src\reviewer_view.py .\benchmark\CASEBRIEF_SYNTHETIC_PACKET_001_V1.0.md > .\reviewer_state_a.html
 ```
 
-Open `reviewer_state_a.html` in a browser. State A shows `RUN 001: NOT EXECUTED`, exposes source identifiers without evidence bodies, withholds restricted source detail, and does not present model findings or human acceptance.
+Open `reviewer_state_a.html` in a browser. This is the **pre-run State A view**: it shows `RUN 001: NOT EXECUTED`, exposes source identifiers without evidence bodies, withholds restricted source detail, and does not display the later Run 001 receipt. It is not a current post-run view. State B remains unimplemented.
 
 ## Model route and request boundary
 
@@ -50,9 +50,9 @@ python -B .\src\validate_output.py .\raw\CASEBRIEF_RUN_001_OPENROUTER_ANSWER.jso
 
 Transport success is not structural validity; structural validity is not quality; quality is not human acceptance. Optional response metadata may include `id`, `model`, `provider`/`openrouter_metadata`, `system_fingerprint`, `choices[0].finish_reason`, and usage token/cost fields. Missing metadata is **UNKNOWN / NOT PROVIDED**.
 
-## Judge reproduction and official Run 001
+## Independent judge attempt and official Run 001
 
-An independent judge may reproduce the public run using the judge's own OpenRouter account, API key, credits, and authorization. This does **not** create or constitute the official CaseBrief Run 001 receipt. Supply `OPENROUTER_API_KEY` through an approved out-of-band environment-secret mechanism; `.env.example` contains only a blank template. The planning expectation is spend well below **US$1** at currently published rates, not a guaranteed cost. Before running, confirm the current model/provider rates and account/key limits on the [OpenRouter model listing](https://openrouter.ai/meta/muse-spark-open); actual spend depends on usage and provider/account terms.
+For a clean checkout, confirm the public frozen build contract and synthetic packet are present, run the documented offline tests, and understand the documented provider/model route. An independent judge may then make a distinct attempt using the judge's own OpenRouter account, key, credits, and authorization. This is not a reproduction of the same stochastic output and does not replace or alter the official receipt. Do not use a private manifest, private raw evidence, evaluator files, or reasoning. Supply `OPENROUTER_API_KEY` through an approved out-of-band environment-secret mechanism; `.env.example` contains only a blank template. Before running, confirm current model/provider rates and account/key limits on the [OpenRouter model listing](https://openrouter.ai/meta/muse-spark-open); any prior planning estimate was not a guaranteed cost.
 
 After confirming the key is available in the environment, a judge's independent reproduction command is:
 
@@ -62,19 +62,24 @@ python -B .\src\run_001.py
 
 This command makes one request if configuration and output paths pass preflight. A failure is not permission to retry.
 
-The **official CaseBrief Run 001** requires Chandi's separate explicit authorization. Until then, **Run 001 remains NOT EXECUTED**. Independent judge authorization does not substitute for or imply Chandi's authorization.
+The official CaseBrief Run 001 is recorded in the [public receipt](docs/RUN_001_RECEIPT.md). A judge's independent attempt is separate and must not be represented as the official attempt.
 
 ## Current status and non-goals
 
-State B remains unavailable. There is no genuine Run 001 record or model output in this package. No M2MB integration, production-system access, autonomous decisions, production-readiness claim, legal conclusion, institutional approval, customer validation, commercial-readiness claim, ROI claim, or model-performance claim is established.
+State B remains unavailable. The receipt is a single-run observation, not a quality evaluation, acceptance decision, or generalized model-performance result. No M2MB integration, production-system access, autonomous decisions, production-readiness claim, legal conclusion, institutional approval, customer validation, commercial-readiness claim, ROI claim, or model-performance claim is established.
 
 **HYPOTHESIS — NOT VALIDATED:** “One scoped evidence brief accepted by an authorised human for its stated review purpose.”
+
+## Remaining release decisions
+
+The repository does not establish a license, public contact address, or approved roadmap commitment. These remain release decisions; none is inferred or promised here.
 
 ## Inspect the package
 
 - [Architecture](docs/ARCHITECTURE.md) — implemented components, trust boundaries, lifecycle, and current status.
 - [Evaluation method](docs/EVALUATION_METHOD.md) — validation/evaluation distinctions and private run-evidence convention.
 - [Runbook](docs/RUNBOOK.md) — offline checks and separately authorized run/post-run steps.
+- [Run 001 receipt](docs/RUN_001_RECEIPT.md) — public-safe metadata for the completed attempt; private raw response and reasoning are excluded.
 - [Hackathon provenance draft](docs/HACKATHON_PROVENANCE.md) — **DRAFT — NOT RELEASE AUTHORITY**; provenance, rights, and publication remain human decisions.
 
 ## Hackathon build disclosure

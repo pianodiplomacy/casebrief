@@ -8,7 +8,7 @@ CaseBrief is an offline evidence-review experiment around CaseBrief Benchmark v1
 |---|---|---|
 | Frozen evidence input | Implemented: one synthetic Packet 001 | No private case material is authorized by this benchmark. |
 | Frozen model-facing contract | Implemented as a separately loaded build contract | The contract governs; packet sources are supplied evidence, not instructions. |
-| Run adapter | OpenRouter/Baseten integration implemented and offline-tested; no live model request executed. | One application-level HTTP request, no redirect replay, bounded response reads, no retry or repair. |
+| Run adapter | OpenRouter/Baseten integration implemented and offline-tested; one Run 001 response recorded. | One application-level HTTP request, no redirect replay, bounded response reads, no retry or repair. |
 | Provider boundary | OpenRouter gateway, genuine Meta Muse Spark Open model, Baseten pinned upstream | Fixed endpoint/model and fail-closed provider routing; hosted-provider internal behavior is outside the CaseBrief request boundary. |
 | Raw response preservation | Implemented as bounded byte-for-byte preservation within the approved 1 MiB capture ceiling, except that a body containing the configured credential is rejected and not written | Oversized or credential-bearing bodies are recorded as fail-closed observations without preserving the prohibited body; neither creates an answer artifact. |
 | Answer extraction | Implemented after successful raw preservation | Exact `choices[0].message.content` is saved separately; extraction failure retains raw response and creates no answer. |
@@ -17,7 +17,7 @@ CaseBrief is an offline evidence-review experiment around CaseBrief Benchmark v1
 | Human disposition | Required boundary, not automated | Consequential decisions remain with an authorized human. |
 | Reviewer UI | State A implemented as a standard-library, read-only local browser report | State B remains unavailable and unimplemented. |
 
-Run 001 remains **NOT EXECUTED**. State A remains current; State B remains unimplemented.
+Run 001 was executed once. Its public-safe outcome is documented in the [Run 001 receipt](RUN_001_RECEIPT.md). Reviewer State A is the **pre-run historical view**; State B remains unimplemented.
 
 ## Inputs and trust boundaries
 
@@ -37,26 +37,26 @@ One attempt is exactly one application-level HTTP request made by CaseBrief. The
 
 ## Run 001 lifecycle
 
-1. **Freeze and inspect:** use the unchanged contract and synthetic packet; confirm their manifest hashes.
+1. **Freeze and inspect:** use the public frozen contract and synthetic packet. Public judges confirm these files are present; the private manufacturing manifest is not part of the public reproduction checklist.
 2. **Offline preflight:** run mocked adapter safety tests and deterministic offline checks. Tests do not call a model or use a real credential.
-3. **Authorization and account readiness:** official CaseBrief Run 001 requires Chandi's separate explicit authorization. An independent judge may separately reproduce the public run using the judge's own account, key, credits, and authorization; this is not the official Run 001 receipt. A dedicated finite key limit is recommended; account funding and actual cost are external.
-4. **Single request:** an explicitly invoked adapter makes one non-streaming HTTP request at most, with no redirect replay, retry, fallback, provider/model switch, or repair.
-5. **Capture raw envelope:** CaseBrief provides bounded byte-for-byte preservation within the approved 1 MiB capture ceiling, except that a body containing the configured credential is rejected and not written. An oversized or credential-bearing body is recorded as a fail-closed observation without preserving the prohibited body itself. The adapter may read one additional detection byte to reject an oversized body; neither failure case saves a body or creates an answer artifact.
-6. **Extract answer:** only after preserving the successful raw body, strictly decode UTF-8 and parse a copy of the JSON envelope. Require `choices[0].message.content` to be a string and save its exact UTF-8 bytes separately. If extraction fails, keep raw response, return nonzero, and do not create an answer or retry.
-7. **Validate and review:** a human may run the deterministic structural validator on a genuine extracted answer. Any quality evaluation is separate, and an authorized human retains disposition authority.
+3. **Recorded attempt:** the supplied receipt records one response from Meta Muse Spark Open through OpenRouter, with BaseTen returned as provider. It ended with `finish_reason: length`, 4,096 completion tokens (4,093 reasoning tokens), and null `message.content`. No retry or repair occurred.
+4. **Capture raw evidence:** the private response artifact is identified in the receipt metadata. Its body and reasoning remain private and are not part of the public package.
+5. **Extract and validate:** no answer artifact existed because `message.content` was null. Structural validation was not run.
+6. **Assess and dispose:** quality assessment and human acceptance were not performed.
+7. **Independent attempt:** a judge's separately authorized execution using their own account is a distinct attempt, not a reproduction of the same stochastic output or the official receipt.
 
-When an eligible non-secret body is accepted, the raw response envelope and extracted answer are distinct artifacts. The envelope preserves all fields as returned; when present, useful fields include `id`, `model`, `provider`/`openrouter_metadata`, `system_fingerprint`, `choices[0].finish_reason`, usage prompt/completion/total tokens, and usage cost. Missing optional metadata is **UNKNOWN / NOT PROVIDED**.
+The supplied receipt reports a private raw response envelope. It reports null final content and no answer artifact; no structural validation, quality assessment, or human acceptance followed. The public receipt contains metadata only and excludes reasoning content.
 
-Transport success is not structural validity; structural validity is not quality; quality is not human acceptance. No model output or Run 001 record currently exists.
+Transport success does not establish structural validity, quality, or human acceptance. These remain separate outcomes.
 
 ## Validator boundary
 
 `src/validate_output.py` checks that the input is one JSON object, required keys and value shapes are present, and cited source IDs are valid for Packet 001. It does not decide whether a claim is substantively supported, whether the model resisted an embedded instruction, whether output is safe or high quality, or whether a human should accept it.
 
-## Reviewer experience — State A current
+## Reviewer experience — State A pre-run historical view
 
-The current truthful state is **STATE A - NO MODEL RUN AVAILABLE**. `src/reviewer_view.py` renders a standard-library, read-only local browser report from the frozen synthetic packet; `tests/test_reviewer_view.py` verifies the State A boundary.
+The existing **STATE A - NO MODEL RUN AVAILABLE** is the pre-run historical view. `src/reviewer_view.py` renders a standard-library, read-only local browser report from the frozen synthetic packet; `tests/test_reviewer_view.py` verifies the State A boundary.
 
-State A displays the selected model direction, `RUN 001: NOT EXECUTED`, the frozen packet source identifiers, unavailable model findings, human disposition `PENDING`, and the provider integration status. Evidence bodies are not reproduced. Restricted `SRC-007` detail is withheld. The reviewer does not write a disposition, alter evidence, call a provider, or represent automated acceptance.
+The pre-run State A view displays the selected model direction, `RUN 001: NOT EXECUTED`, the frozen packet source identifiers, unavailable model findings, human disposition `PENDING`, and the then-unresolved provider status. It does not reflect or display the later receipt. Evidence bodies are not reproduced. Restricted `SRC-007` detail is withheld. The reviewer does not write a disposition, alter evidence, call a provider, or represent automated acceptance.
 
 **STATE B — RECORDED RUN AVAILABLE** remains unimplemented and unavailable. It may be driven only by a genuine, separately authorized recorded run bundle; no placeholder, demonstration, evaluator material, or substituted-model output may resemble Run 001.

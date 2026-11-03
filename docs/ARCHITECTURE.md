@@ -9,6 +9,7 @@ CaseBrief is an offline evidence-review experiment around CaseBrief Benchmark v1
 | Frozen evidence input | Implemented: one synthetic Packet 001 | No private case material is authorized by this benchmark. |
 | Frozen model-facing contract | Implemented as a separately loaded build contract | The contract governs; packet sources are supplied evidence, not instructions. |
 | Run adapter | OpenRouter/Baseten integration implemented and offline-tested; one Run 001 response recorded. | One application-level HTTP request, no redirect replay, bounded response reads, no retry or repair. |
+| Run 002 low-reasoning experiment | Implemented locally; not executed. | One-variable experiment derived from Run 001 and separately authorized; changes only the request's reasoning effort to `low`. |
 | Provider boundary | OpenRouter gateway, genuine Meta Muse Spark Open model, Baseten pinned upstream | Fixed endpoint/model and fail-closed provider routing; hosted-provider internal behavior is outside the CaseBrief request boundary. |
 | Raw response preservation | Implemented as bounded byte-for-byte preservation within the approved 1 MiB capture ceiling, except that a body containing the configured credential is rejected and not written | Oversized or credential-bearing bodies are recorded as fail-closed observations without preserving the prohibited body; neither creates an answer artifact. |
 | Answer extraction | Implemented after successful raw preservation | Exact `choices[0].message.content` is saved separately; extraction failure retains raw response and creates no answer. |
@@ -32,6 +33,12 @@ The boundary between the product and consequential decisions is a human reviewer
 The adapter sends Chat Completions requests to the OpenRouter gateway at `https://openrouter.ai/api/v1/chat/completions` for the genuine Meta Muse Spark Open model ID `meta/muse-spark-open`. Its fixed provider object pins the upstream allow-list to `baseten`, disables provider fallback, and requires supported request parameters. It uses `OPENROUTER_API_KEY` from the environment, a local 60-second timeout, non-streaming output, and a provisional 4096-token maximum.
 
 `reasoning_effort` is intentionally omitted from the initial request pending live evidence. Its omission does not imply that reasoning is disabled. Local timeout and output limits are not provider spend guarantees.
+
+## Run 002 low-reasoning experiment
+
+Run 002 is implemented locally only after this patch and has not been executed. It is a one-variable experiment derived from Run 001 and separately authorized from it. The model, endpoint, Baseten-only provider route, disabled fallback, required-parameter setting, frozen inputs, non-streaming setting, 4096-token limit, 60-second timeout, one-request boundary, redirect refusal, no-retry/no-repair policy, credential handling, and bounded artifact capture are preserved. The sole request-variable change is `"reasoning": {"effort": "low"}`.
+
+The research question is whether a supported low-reasoning configuration leaves sufficient completion budget for the frozen CaseBrief JSON answer. Implementation and offline tests do not establish that it will return visible content. Run 002 has not been run, is not a reproduction of Run 001, and does not change the Run 001 result or public receipt. Its raw response, HTTP error, and extracted answer paths are specific to Run 002; the Run 001 paths remain untouched.
 
 One attempt is exactly one application-level HTTP request made by CaseBrief. The adapter disables redirect following to prevent redirect replay of the POST. It makes no retry, second request, alternate model/provider call, fallback, or repair request. Hosted-provider behavior internal to OpenRouter or Baseten is outside this boundary and is not represented as controlled by CaseBrief.
 

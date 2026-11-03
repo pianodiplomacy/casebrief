@@ -1,6 +1,6 @@
 # CaseBrief runbook
 
-This runbook covers offline work, independent judge attempts, and the completed official Run 001 receipt. Run 002 is implemented locally but not executed; its authorization is separate from Run 001.
+This runbook covers offline work, independent judge attempts, and the completed official Run 001 receipt. Run 002 is an immutable observation. Run 003 is implemented experimentally but has not been executed; separate authorization is required.
 
 ## Offline preflight
 
@@ -9,6 +9,7 @@ Use Python 3.10 or later. Run from the repository root:
 ```powershell
 python -B -m unittest discover -s tests -p test_run_001_safety.py -v
 python -B -m unittest discover -s tests -p test_run_002_safety.py -v
+python -B -m unittest discover -s tests -p test_run_003_safety.py -v
 python -B -m unittest discover -s tests -p test_validate_output.py -v
 python -B -m unittest discover -s tests -p test_reviewer_view.py -v
 ```
@@ -49,17 +50,23 @@ Before any authorized inference:
 
 The 60-second timeout is local. `max_tokens: 4096`, bounded response bytes, and the local timeout do not guarantee a spend ceiling.
 
-## Run 002 low-reasoning experiment — implemented, not executed
+## Run 002 low-reasoning observation — immutable
 
-Run 002 is implemented locally only after this patch as a one-variable experiment derived from Run 001. It preserves the frozen build contract and synthetic packet and all Run 001 route/transport settings. Its sole request-variable change is `"reasoning": {"effort": "low"}`. The research question is whether a supported low-reasoning configuration leaves enough completion budget for the frozen CaseBrief JSON answer. It is not proof that low reasoning will produce visible content.
+Run 002 preserved the frozen build contract and synthetic packet and all Run 001 route/transport settings. Its sole request-variable change was `"reasoning": {"effort": "low"}`. The observed answer began with a Markdown fence; the unchanged validator failed with `invalid JSON: Expecting value: line 1 column 1 (char 0)`. Do not repair its content or represent a repaired answer as Run 002 success.
 
-Run 002 is separately authorized from Run 001. This offline implementation authorization does not authorize a model request; Run 002 has not been executed. If a distinct Run 002 attempt is authorized in the future, its adapter is `src/run_002.py` and it can be invoked with:
+Run 002's preserved artifacts are confined to its own three named paths. Do not rerun Run 002 or modify its observation.
+
+## Run 003 structured-output experiment — implemented, NOT EXECUTED
+
+Run 003 holds Run 002's model, endpoint, Baseten-only route, fallback/parameter settings, low reasoning, token limit, stream setting, timeout, prompt, and capture behavior constant. Its sole request-body addition is Chat Completions `response_format` with `type: "json_schema"` and a strict schema representing the frozen CaseBrief contract. OpenRouter supports this format. Baseten documentation says Muse Spark Open accepts but does not enforce the schema, so the experiment does not assume or guarantee enforcement.
+
+The research question is whether this request-only change causes raw visible content to pass the unchanged deterministic validator without client-side repair. The adapter is `src/run_003.py`, and its exclusive artifacts are `raw\CASEBRIEF_RUN_003_OPENROUTER_RESPONSE.raw`, `raw\CASEBRIEF_RUN_003_OPENROUTER_HTTP_ERROR.raw`, and `raw\CASEBRIEF_RUN_003_OPENROUTER_ANSWER.json`. Run 003 has **NOT BEEN EXECUTED**; offline tests do not authorize a model request. Separate authorization is required before invoking:
 
 ```powershell
-python -B .\src\run_002.py
+python -B .\src\run_003.py
 ```
 
-It uses only `raw\CASEBRIEF_RUN_002_OPENROUTER_RESPONSE.raw`, `raw\CASEBRIEF_RUN_002_OPENROUTER_HTTP_ERROR.raw`, and `raw\CASEBRIEF_RUN_002_OPENROUTER_ANSWER.json`. Existing Run 002 outputs stop preflight before transport. The adapter uses exclusive artifact creation and never writes to a Run 001 path. The same one-request boundary, redirect refusal, no-retry/no-fallback/no-repair policy, credential checks, and 1 MiB bounded-capture and credential-body rejection policies apply.
+The Run 003 adapter has the same one-application-request boundary, redirect refusal, no-retry/no-fallback/no-repair policy, credential safeguards, and 1 MiB bounded-capture policy. It never writes to Run 001 or Run 002 paths.
 
 ## Request boundary
 

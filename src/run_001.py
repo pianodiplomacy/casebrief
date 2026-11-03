@@ -6,16 +6,19 @@ import os
 import sys
 from pathlib import Path
 from urllib.error import HTTPError, URLError
-from urllib.request import Request, urlopen
+from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 
-MODEL_PROVIDER = "meta"
-MODEL_ID = "muse-spark-1.3"
-MODEL_ENDPOINT = "https://api.meta.ai/v1/responses"
+MODEL_ID = "meta/muse-spark-open"
+MODEL_ENDPOINT = "https://openrouter.ai/api/v1/chat/completions"
+PROVIDER_ID = "baseten"
+LOCAL_TIMEOUT_SECONDS = 60
+MAX_OUTPUT_TOKENS = 4096
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 PACKET_PATH = PROJECT_ROOT / "benchmark" / "CASEBRIEF_SYNTHETIC_PACKET_001_V1.0.md"
-RAW_RESPONSE_PATH = PROJECT_ROOT / "raw" / "CASEBRIEF_RUN_001_META_RESPONSE.raw"
-RAW_HTTP_ERROR_PATH = PROJECT_ROOT / "raw" / "CASEBRIEF_RUN_001_META_HTTP_ERROR.raw"
+RAW_RESPONSE_PATH = PROJECT_ROOT / "raw" / "CASEBRIEF_RUN_001_OPENROUTER_RESPONSE.raw"
+RAW_HTTP_ERROR_PATH = PROJECT_ROOT / "raw" / "CASEBRIEF_RUN_001_OPENROUTER_HTTP_ERROR.raw"
+RAW_ANSWER_PATH = PROJECT_ROOT / "raw" / "CASEBRIEF_RUN_001_OPENROUTER_ANSWER.json"
 CONTRACT_PATH = PROJECT_ROOT / "benchmark" / "CASEBRIEF_BUILD_CONTRACT_V1.0.md"
 OUTPUT_LIMIT_BYTES = 1_048_576
 RESPONSE_READ_CHUNK_BYTES = 65_536
@@ -27,26 +30,22 @@ class OversizedResponseError(ValueError):
         super().__init__("response exceeded the local byte ceiling")
 
 
-def _required_environment(name: str) -> str:
-    value = os.environ.get(name)
-    if not value:
-        raise ValueError(f"{name} must be set to a non-empty value")
-    return value
+class NoRedirectHandler(HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, new_url):
+        return None
 
 
 def _validate_configuration() -> str:
-    provider = _required_environment("MODEL_PROVIDER")
-    model_id = _required_environment("MODEL_ID")
-    endpoint = _required_environment("MODEL_ENDPOINT")
-    api_key = _required_environment("MODEL_API_KEY")
-
-    if provider != MODEL_PROVIDER:
-        raise ValueError("MODEL_PROVIDER does not match the approved provider")
-    if model_id != MODEL_ID:
-        raise ValueError("MODEL_ID does not match the approved model")
-    if endpoint != MODEL_ENDPOINT:
-        raise ValueError("MODEL_ENDPOINT does not match the approved endpoint")
-    return api_key
+    value = os.environ.get("OPENROUTER_API_KEY")
+    if (
+        not isinstance(value, str)
+        or not value
+        or value != value.strip()
+        or value == "******"
+        or any(ord(character) < 32 or ord(character) == 127 for character in value)
+    ):
+        raise ValueError("OPENROUTER_API_KEY is invalid.")
+    return value
 
 
 def _write_new(path: Path, content: bytes) -> None:
@@ -81,41 +80,92 @@ def _report_oversized_response(category: str, error: OversizedResponseError) -> 
     )
 
 
+def _contains_credential(content: bytes, api_key: str) -> bool:
+    return api_key.encode("utf-8") in content
+
+
+def _extract_answer(response_bytes: bytes) -> bytes:
+    response_text = response_bytes.decode("utf-8", errors="strict")
+    response_object = json.loads(response_text)
+    if not isinstance(response_object, dict):
+        raise ValueError("response envelope must be a JSON object")
+    choices = response_object.get("choices")
+    if not isinstance(choices, list) or not choices:
+        raise ValueError("response envelope must contain a non-empty choices list")
+    first_choice = choices[0]
+    if not isinstance(first_choice, dict):
+        raise ValueError("choices[0] must be an object")
+    message = first_choice.get("message")
+    if not isinstance(message, dict):
+        raise ValueError("choices[0].message must be an object")
+    content = message.get("content")
+    if not isinstance(content, str):
+        raise ValueError("choices[0].message.content must be a string")
+    return content.encode("utf-8", errors="strict")
+
+
 def main() -> int:
     try:
         api_key = _validate_configuration()
-        if RAW_RESPONSE_PATH.exists() or RAW_HTTP_ERROR_PATH.exists():
+    except ValueError:
+        print("Run 001 was not sent: OPENROUTER_API_KEY is invalid.", file=sys.stderr)
+        return 2
+
+    try:
+        RAW_RESPONSE_PATH.parent.mkdir(parents=True, exist_ok=True)
+        if any(
+            path.exists()
+            for path in (RAW_RESPONSE_PATH, RAW_HTTP_ERROR_PATH, RAW_ANSWER_PATH)
+        ):
             raise FileExistsError("Run 001 raw evidence already exists")
         contract_text = CONTRACT_PATH.read_text(encoding="utf-8")
         packet = PACKET_PATH.read_bytes()
         packet_text = packet.decode("utf-8")
-    except (OSError, UnicodeDecodeError, ValueError) as error:
-        print(f"Run 001 was not sent: {error}", file=sys.stderr)
+    except (OSError, UnicodeDecodeError):
+        print("Run 001 preflight failed; no request was sent.", file=sys.stderr)
         return 2
 
-    request_body = json.dumps(
-        {
-            "model": MODEL_ID,
-            "input": (
-                "=== GOVERNING INSTRUCTIONS: FROZEN BUILD CONTRACT ===\n"
-                + contract_text
-                + "\n=== SUPPLIED CASE EVIDENCE: SYNTHETIC PACKET 001 ===\n"
-                + packet_text
-            ),
-        }
-    ).encode("utf-8")
-    request = Request(
-        MODEL_ENDPOINT,
-        data=request_body,
-        headers={
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json",
-        },
-        method="POST",
-    )
+    try:
+        request_body = json.dumps(
+            {
+                "model": MODEL_ID,
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": (
+                            "=== GOVERNING INSTRUCTIONS: FROZEN BUILD CONTRACT ===\n"
+                            + contract_text
+                            + "\n=== SUPPLIED CASE EVIDENCE: SYNTHETIC PACKET 001 ===\n"
+                            + packet_text
+                        ),
+                    }
+                ],
+                "stream": False,
+                "max_tokens": MAX_OUTPUT_TOKENS,
+                "provider": {
+                    "only": [PROVIDER_ID],
+                    "allow_fallbacks": False,
+                    "require_parameters": True,
+                },
+            },
+            ensure_ascii=True,
+        ).encode("utf-8")
+        request = Request(
+            MODEL_ENDPOINT,
+            data=request_body,
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+            },
+            method="POST",
+        )
+    except (TypeError, ValueError, UnicodeError):
+        print("Run 001 request construction failed; no request was sent.", file=sys.stderr)
+        return 2
 
     try:
-        with urlopen(request, timeout=60) as response:
+        opener = build_opener(NoRedirectHandler())
+        with opener.open(request, timeout=LOCAL_TIMEOUT_SECONDS) as response:
             response_bytes = _read_bounded(response)
     except OversizedResponseError as error:
         _report_oversized_response("Successful", error)
@@ -128,18 +178,25 @@ def main() -> int:
                 f"HTTP error (status {error.code})", oversized_error
             )
             return 1
-        except (URLError, TimeoutError, OSError):
+        except (URLError, TimeoutError, OSError, ValueError, TypeError):
             print(
                 f"HTTP error response body could not be read "
                 f"(status {error.code}); no response body was preserved.",
                 file=sys.stderr,
             )
             return 1
+        if _contains_credential(error_bytes, api_key):
+            print(
+                "HTTP error response contained the configured credential; "
+                "the body was not preserved.",
+                file=sys.stderr,
+            )
+            return 1
         try:
             _write_new(RAW_HTTP_ERROR_PATH, error_bytes)
-        except OSError as write_error:
+        except OSError:
             print(
-                f"HTTP error response could not be preserved: {write_error}",
+                "HTTP error response could not be preserved.",
                 file=sys.stderr,
             )
             return 2
@@ -149,19 +206,55 @@ def main() -> int:
             file=sys.stderr,
         )
         return 1
-    except (URLError, TimeoutError, OSError):
+    except (URLError, TimeoutError, OSError, ValueError, TypeError):
         print("Request failed without a preserved HTTP response.", file=sys.stderr)
+        return 1
+
+    if _contains_credential(response_bytes, api_key):
+        print(
+            "Successful response contained the configured credential; "
+            "the body and answer were not preserved.",
+            file=sys.stderr,
+        )
         return 1
 
     try:
         _write_new(RAW_RESPONSE_PATH, response_bytes)
-    except OSError as error:
-        print(f"Raw response could not be preserved: {error}", file=sys.stderr)
+    except OSError:
+        print("Raw response could not be preserved.", file=sys.stderr)
+        return 2
+
+    try:
+        answer_bytes = _extract_answer(response_bytes)
+    except (UnicodeError, ValueError):
+        print(
+            f"Raw response preserved at {RAW_RESPONSE_PATH.name}; "
+            "answer extraction failed. No retry or repair was attempted.",
+            file=sys.stderr,
+        )
+        return 1
+
+    if _contains_credential(answer_bytes, api_key):
+        print(
+            "Extracted answer contained the configured credential; "
+            "the answer was not preserved.",
+            file=sys.stderr,
+        )
+        return 1
+
+    try:
+        _write_new(RAW_ANSWER_PATH, answer_bytes)
+    except OSError:
+        print(
+            "Raw response preserved, but extracted answer could not be preserved.",
+            file=sys.stderr,
+        )
         return 2
 
     print(
         f"Raw response preserved at {RAW_RESPONSE_PATH.name}; "
-        "no validation or evaluation was run."
+        f"extracted answer preserved at {RAW_ANSWER_PATH.name}. "
+        "No validation or evaluation was run."
     )
     return 0
 

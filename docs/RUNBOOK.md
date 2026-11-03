@@ -1,17 +1,18 @@
 # CaseBrief runbook
 
-This runbook separates permitted offline work from provider-gated inference. It does not authorize a model call, create a run bundle, or provide provider configuration.
+This runbook separates offline work, independent judge reproduction, and the official Run 001. It does not itself authorize the official run.
 
-## Offline
+## Offline preflight
 
-Run from the repository root. These commands do not call a provider:
+Use Python 3.10 or later. Run from the repository root:
 
 ```powershell
+python -B -m unittest discover -s tests -p test_run_001_safety.py -v
 python -B -m unittest discover -s tests -p test_validate_output.py -v
 python -B -m unittest discover -s tests -p test_reviewer_view.py -v
 ```
 
-The adapter safety suite is verified using its accepted controlled guarded runner. Bare `unittest` discovery is not the accepted safety-suite procedure because the restrictive audit guard must be installed with the approved import, network, protected-read, and temporary-write boundaries. Preserve the retained controlled-QC receipt: validator **6/6**, safety **15/15**, and real guard probes **5/5**. Do not publish an abbreviated runner or treat a bare-import error as a failed safety assertion.
+The adapter safety suite installs its audit guard before importing `src.run_001`. Its read allow-list covers only the test and adapter source, required frozen contract/packet inputs, and narrowly named import-cache entries; `-B` prevents bytecode creation. The guard blocks network access, `.env`, evaluator/private evidence, and unauthorized workspace reads/writes. Tests use mocked transport and a dummy credential only. These commands do not call a model.
 
 Generate the local State A reviewer:
 
@@ -35,43 +36,50 @@ foreach ($name in @('CASEBRIEF_BUILD_CONTRACT_V1.0.md', 'CASEBRIEF_SYNTHETIC_PAC
 
 Do not open evaluator files to recompute their hashes. A matching hash establishes byte integrity against the manifest, not provenance, licensing, or publication approval.
 
-### Offline review workflow
+## Implemented route and preflight
 
-1. Confirm the contract and synthetic packet hashes.
-2. Inspect the contract, packet, adapter, validator, and tests without opening evaluator material or real credentials.
-3. Run the two suites independently.
-4. Record test output separately from any future model evidence.
-5. For a genuine captured response only, run `python -B src\validate_output.py <recorded-response-path>`. Do not invent a response to exercise the run workflow.
+The OpenRouter/Baseten integration is implemented and offline-tested only; no live model request has been executed. The adapter uses the OpenRouter Chat Completions endpoint `https://openrouter.ai/api/v1/chat/completions`, model `meta/muse-spark-open` (Meta Muse Spark Open), and pins the upstream provider to `baseten`. Its provider object is fixed to an explicit Baseten-only allow-list, `allow_fallbacks: false`, and `require_parameters: true`. It sends one user message containing the complete frozen contract before the complete synthetic packet. The request is non-streaming with `max_tokens: 4096`; `reasoning_effort` is intentionally omitted as the approved initial configuration pending live evidence. Omission does not establish that reasoning is disabled.
 
-## Provider-gated preflight — currently blocked
+Before any authorized inference:
 
-All six provider gates remain unresolved:
+- Confirm current endpoint/model/provider availability and the provider routing behavior from approved current evidence.
+- Check the current published model/provider rate at the [OpenRouter model listing](https://openrouter.ai/meta/muse-spark-open). The planning expectation is spend well below US$1 at currently published rates, not a guaranteed cost; this patch makes no live pricing lookup, and actual cost depends on usage and account/provider terms.
+- Supply `OPENROUTER_API_KEY` out of band only. Do not put credentials in source, prompts, command history, test fixtures, output, or logs.
+- A dedicated API key with a finite OpenRouter credit/spend limit is recommended. Account funding is separate from expected inference cost, and neither is established by this repository.
+- Confirm frozen contract and packet hashes, applicable data/IP/confidentiality terms, and the appropriate run authorization.
 
-- **P1:** approved exact endpoint and model identity.
-- **P2:** documented authentication method and credential handling.
-- **P3:** supported/default reasoning configuration.
-- **P4:** generation-token controls and approved spend boundary.
-- **P5:** provider usage, finish, and request-field mapping.
-- **P6:** returned model/version metadata, where available.
+The 60-second timeout is local. `max_tokens: 4096`, bounded response bytes, and the local timeout do not guarantee a spend ceiling.
 
-Before any inference, independently confirm the benchmark's prerequisite questions: eligible model/tooling, actual access/credits, deadline/time zone, submission requirements, and applicable IP/confidentiality/data/licensing terms. Unconfirmed items remain unconfirmed. Do not fill missing provider values from examples or assumptions.
+## Request boundary
 
-Even when these gates are resolved, a separate human decision must authorize one Run 001 attempt. Phase A acceptance is not execution authority.
+One attempt means exactly one application-level HTTP request made by CaseBrief. The adapter does not automatically retry, make a second request, switch models or providers, issue repair requests, or allow provider fallback. HTTP redirects are not followed, so a redirected POST is not replayed. Hosted-provider behavior internal to OpenRouter or Baseten is outside CaseBrief's request boundary and is not represented as controlled by CaseBrief.
 
-## Run — only after separate authorization
+## Judge reproduction and official Run 001
 
-- Make at most one request. Do not automatically retry, switch providers, fall back, or use another model.
-- Preserve the complete bounded response or bounded HTTP-error body without rewriting it, using exclusive creation. Keep raw artifacts private.
-- The adapter's 1 MiB local response cap is not a generation-token ceiling, provider timeout guarantee, or spend limit.
-- An oversized response is unsuccessful; its prefix is not a complete response and is not preserved as one. Keep only the sanitized failure metadata emitted by the adapter.
-- A nonzero result, timeout, malformed captured body, or provider error is not permission to retry.
+**Independent judge reproduction:** A judge may independently run the public adapter using the judge's own OpenRouter account, key, credits, and authorization. After supplying `OPENROUTER_API_KEY` through an approved out-of-band environment-secret mechanism, invoke:
 
-No `RUN_001/` bundle is currently present or created. See the run-evidence convention in [Evaluation method](EVALUATION_METHOD.md) before any separately authorized run.
+```powershell
+python -B .\src\run_001.py
+```
 
-## Post-run — only for a genuine recorded attempt
+This independent reproduction is not the official CaseBrief Run 001 receipt and does not require Chandi's authorization.
 
-1. Preserve and identify the genuine request, raw response/error, and transport metadata.
-2. Run the deterministic structural validator on a captured success response. Transport capture is not structure validity.
-3. Conduct any authorized evaluation privately with the frozen evaluator material. Keep it out of model-facing input and public-release candidates.
-4. Have an authorized human review limitations and findings and record the disposition under a separately approved convention.
-5. Do not claim safety, quality, human acceptance, production readiness, or general model performance from a validator result or one fixture.
+**Official CaseBrief Run 001:** Requires Chandi's separate explicit authorization. An offline test, a judge reproduction, a configured key, or a successful preflight does not grant this authorization. Run 001 remains **NOT EXECUTED** unless and until the authorized official attempt occurs.
+
+## Capture and post-run — only for a genuine attempt
+
+- CaseBrief provides bounded byte-for-byte preservation within the approved 1 MiB capture ceiling, except that a body containing the configured credential is rejected and not written.
+- An oversized or credential-bearing body is recorded as a fail-closed observation without preserving the prohibited body itself. Neither case creates an answer artifact or triggers retry, fallback, provider switching, repair, or a second request.
+- A non-secret successful body within the ceiling is preserved at `raw\CASEBRIEF_RUN_001_OPENROUTER_RESPONSE.raw`; a non-secret bounded HTTP-error body is separately preserved at `raw\CASEBRIEF_RUN_001_OPENROUTER_HTTP_ERROR.raw`, using exclusive creation. An error, timeout, malformed response, redirect, or nonzero result is not permission to retry.
+- After successful raw preservation, the adapter strictly decodes and parses a copy of the envelope and saves exactly `choices[0].message.content` as UTF-8 bytes at `raw\CASEBRIEF_RUN_001_OPENROUTER_ANSWER.json`. It does not trim, wrap, repair, or reserialize the answer. Extraction failure retains the raw response, returns non-zero, and creates no answer.
+- Only for a genuine captured answer, run the deterministic structural validator:
+
+  ```powershell
+  python -B .\src\validate_output.py .\raw\CASEBRIEF_RUN_001_OPENROUTER_ANSWER.json
+  ```
+
+- Preserve the full raw envelope as source evidence. When present it may contain `id`, `model`, `provider` or `openrouter_metadata`, `system_fingerprint`, `choices[0].finish_reason`, `usage.prompt_tokens`, `usage.completion_tokens`, `usage.total_tokens`, and `usage.cost`. Missing optional metadata is **UNKNOWN / NOT PROVIDED**.
+- Keep artifacts private. Conduct any separately authorized evaluation privately with frozen evaluator material; never include it in model-facing input or public release.
+- **Transport success != structural validity != quality != human acceptance.** A validator result or one fixture does not establish safety, quality, human acceptance, production readiness, or general model performance.
+
+No State B or Run 001 evidence bundle is created by the offline procedures.
